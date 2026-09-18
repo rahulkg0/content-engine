@@ -1,0 +1,56 @@
+# Environment & Secret files (CRITICAL SECURITY)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+backend/venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Database & SQLite files
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+content_engine.db
+backend/content_engine.db
+
+# Storage & Temp directories
+storage/
+tmp/
+temp/
+logs/
+*.log
+
+# Node & Frontend Build outputs
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+
+# OS metadata & IDE files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
