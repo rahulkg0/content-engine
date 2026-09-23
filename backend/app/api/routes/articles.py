@@ -118,7 +118,7 @@ async def edit_final_article(job_id: str, req: EditArticleRequest, db: AsyncSess
 
     return {"job_id": job_id, "message": "05-final.md updated successfully."}
 
-from app.agents.humanizer_agent import HumanizerAgent
+from app.agents.editorial_polish_agent import EditorialPolishAgent
 
 @router.post("/{job_id}/humanize")
 async def humanize_article(job_id: str, db: AsyncSession = Depends(get_db)):
@@ -131,10 +131,15 @@ async def humanize_article(job_id: str, db: AsyncSession = Depends(get_db)):
     if not current_text:
         raise HTTPException(status_code=400, detail="No article content found to humanize.")
 
-    humanized = await HumanizerAgent.humanize(current_text, topic=job.topic, primary_keyword=job.primary_keyword)
-    MarkdownService.save_markdown(job_id, "05-final.md", humanized)
+    polished = await EditorialPolishAgent.polish(
+        current_text,
+        topic=job.topic,
+        primary_keyword=job.primary_keyword,
+        audience=job.audience
+    )
+    MarkdownService.save_markdown(job_id, "05-final.md", polished)
 
-    return {"job_id": job_id, "message": "Article humanized successfully.", "humanized_text": humanized}
+    return {"job_id": job_id, "message": "Article polished successfully.", "humanized_text": polished}
 
 @router.post("/{job_id}/reject")
 async def reject_article(job_id: str, db: AsyncSession = Depends(get_db)):

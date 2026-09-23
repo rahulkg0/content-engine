@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getBatchDetail } from "@/lib/api";
+import { getBatchDetail, deleteBatch, resumeBatch } from "@/lib/api";
 import StatusBadge from "@/components/StatusBadge";
 import { formatDate } from "@/lib/formatters";
-import { FileSpreadsheet, ArrowRight, RefreshCw, Layers } from "lucide-react";
+import { FileSpreadsheet, ArrowRight, RefreshCw, Layers, Play, Trash2 } from "lucide-react";
 
 export default function BatchDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const batchId = params.id as string;
 
   const [batch, setBatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const loadData = async () => {
     try {
@@ -26,9 +28,35 @@ export default function BatchDetailPage() {
     }
   };
 
+  const handleResume = async () => {
+    try {
+      setActionLoading(true);
+      await resumeBatch(batchId);
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed to resume batch: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete batch "${batch?.filename}"?\n\nThis will permanently remove all associated jobs, articles, and temporary markdown files.`)) {
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await deleteBatch(batchId);
+      router.push("/");
+    } catch (err: any) {
+      alert(`Failed to delete batch: ${err.message}`);
+      setActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 3000); // Poll batch progress
+    const interval = setInterval(loadData, 2000); // Live polling batch progress every 2s
     return () => clearInterval(interval);
   }, [batchId]);
 
@@ -72,7 +100,7 @@ export default function BatchDetailPage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
             <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">
               {publishedCount} Published
             </span>
@@ -84,6 +112,25 @@ export default function BatchDetailPage() {
                 {failedCount} Failed
               </span>
             )}
+            
+            <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+            <button
+              onClick={handleResume}
+              disabled={actionLoading}
+              className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Resume Batch</span>
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={actionLoading}
+              className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Batch</span>
+            </button>
           </div>
         </div>
 

@@ -31,6 +31,8 @@ export default function ReviewQueuePage() {
 
   useEffect(() => {
     loadQueue();
+    const interval = setInterval(loadQueue, 2000); // Live polling review queue every 2s
+    return () => clearInterval(interval);
   }, []);
 
   const handleApprove = async (jobId: string) => {
@@ -278,7 +280,7 @@ export default function ReviewQueuePage() {
 
               {activeModal.type === "quality" && (
                 <pre className="whitespace-pre-wrap font-mono text-xs text-slate-300 bg-slate-950 p-4 rounded-xl">
-                  {activeModal.item.quality_report_text}
+                  {(activeModal.item.quality_report_text || "").replace(/^\s*```json\s*\{[\s\S]*?\}\s*```\s*/, "").trim()}
                 </pre>
               )}
 

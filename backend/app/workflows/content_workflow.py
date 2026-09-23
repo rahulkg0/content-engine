@@ -5,6 +5,7 @@ from app.agents.research_agent import ResearchAgent
 from app.agents.strategist_agent import StrategistAgent
 from app.agents.writer_agent import WriterAgent
 from app.agents.quality_agent import QualityAgent
+from app.agents.revision_agent import RevisionAgent
 from app.services.markdown_service import MarkdownService
 from app.config import settings
 
@@ -74,6 +75,24 @@ class ContentWorkflow:
             }
 
     @staticmethod
+    async def node_revision(state: WorkflowState) -> WorkflowState:
+        job_id = state["job_id"]
+        job_data = state["job_data"]
+        try:
+            await RevisionAgent.run(job_id, job_data)
+            return {
+                **state,
+                "status": "DRAFT_COMPLETE",
+                "current_step": "DRAFT_COMPLETE"
+            }
+        except Exception as e:
+            return {
+                **state,
+                "status": "FAILED",
+                "error_message": f"Revision node failed: {str(e)}"
+            }
+
+    @staticmethod
     async def node_quality_check(state: WorkflowState) -> WorkflowState:
         job_id = state["job_id"]
         job_data = state["job_data"]
@@ -96,14 +115,14 @@ class ContentWorkflow:
                         "status": "REVISION_REQUIRED",
                         "current_step": "REVISION_REQUIRED",
                         "retry_count": retry_count + 1,
-                        "revision_notes": "Quality check flagged claim inaccuracies or weak density. Please revise."
+                        "revision_notes": "Quality check flagged claim inaccuracies or keyword density issues. Executing targeted revision."
                     }
                 else:
                     return {
                         **state,
-                        "status": "FAILED",
-                        "current_step": "REVISION_EXHAUSTED",
-                        "error_message": f"Failed quality checks after {retry_count} revision attempts."
+                        "status": "MANUAL_REVIEW_REQUIRED",
+                        "current_step": "MANUAL_REVIEW_REQUIRED",
+                        "error_message": f"Quality audit findings unresolved after {retry_count} revision attempts. Manual review required."
                     }
         except Exception as e:
             return {
@@ -119,6 +138,7 @@ class ContentWorkflow:
         workflow.add_node("research", cls.node_research)
         workflow.add_node("strategy", cls.node_strategy)
         workflow.add_node("writing", cls.node_writing)
+        workflow.add_node("revision", cls.node_revision)
         workflow.add_node("quality_check", cls.node_quality_check)
 
         workflow.set_entry_point("research")
@@ -126,15 +146,17 @@ class ContentWorkflow:
         workflow.add_edge("research", "strategy")
         workflow.add_edge("strategy", "writing")
         workflow.add_edge("writing", "quality_check")
+        workflow.add_edge("revision", "quality_check")
 
         def route_quality(state: WorkflowState):
             if state["status"] == "AWAITING_APPROVAL":
                 return END
             elif state["status"] == "REVISION_REQUIRED":
-                return "writing"
+                return "revision"
             else:
                 return END
 
         workflow.add_conditional_edges("quality_check", route_quality)
 
         return workflow.compile()
+

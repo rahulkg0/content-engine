@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getDashboardMetrics, getBatchesList } from "@/lib/api";
+import { getDashboardMetrics, getBatchesList, deleteBatch, resumeBatch } from "@/lib/api";
 import StatusBadge from "@/components/StatusBadge";
 import { formatDate } from "@/lib/formatters";
-import { FileSpreadsheet, CheckCircle2, ArrowRight, RefreshCw, AlertCircle, Layers, Sparkles } from "lucide-react";
+import { FileSpreadsheet, CheckCircle2, ArrowRight, RefreshCw, AlertCircle, Layers, Sparkles, Play, Trash2 } from "lucide-react";
 
 export default function Dashboard() {
   const [metrics, setMetrics] = useState<any>(null);
@@ -26,9 +26,34 @@ export default function Dashboard() {
     }
   };
 
+  const handleResume = async (batchId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await resumeBatch(batchId);
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed to resume batch: ${err.message}`);
+    }
+  };
+
+  const handleDelete = async (batchId: string, filename: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete batch "${filename}"?\n\nThis will permanently remove all associated jobs, articles, and temporary markdown files.`)) {
+      return;
+    }
+    try {
+      await deleteBatch(batchId);
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed to delete batch: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // Live polling dashboard every 5s
+    const interval = setInterval(loadData, 2000); // Live polling dashboard every 2s
     return () => clearInterval(interval);
   }, []);
 
@@ -182,12 +207,30 @@ export default function Dashboard() {
                       {formatDate(batch.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/batches/${batch.id}`}
-                        className="inline-flex items-center text-xs font-semibold text-sky-400 hover:text-sky-300"
-                      >
-                        View Batch <ArrowRight className="w-3 h-3 ml-1" />
-                      </Link>
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={(e) => handleResume(batch.id, e)}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition flex items-center gap-1 text-xs font-semibold"
+                          title="Resume batch processing"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>Resume</span>
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(batch.id, batch.filename, e)}
+                          className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition flex items-center gap-1 text-xs font-semibold"
+                          title="Delete batch"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete</span>
+                        </button>
+                        <Link
+                          href={`/batches/${batch.id}`}
+                          className="inline-flex items-center text-xs font-semibold text-sky-400 hover:text-sky-300 pl-1"
+                        >
+                          View <ArrowRight className="w-3 h-3 ml-1" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -19,6 +19,7 @@ class JobStatus(str, enum.Enum):
     DRAFT_COMPLETE = "DRAFT_COMPLETE"
     QUALITY_CHECK = "QUALITY_CHECK"
     REVISION_REQUIRED = "REVISION_REQUIRED"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
     FINAL_READY = "FINAL_READY"
     AWAITING_APPROVAL = "AWAITING_APPROVAL"
     APPROVED = "APPROVED"
@@ -88,6 +89,7 @@ class ContentJob(Base):
     status = Column(SQLEnum(JobStatus), default=JobStatus.QUEUED)
     current_step = Column(String(100), default="QUEUED")
     retry_count = Column(Integer, default=0)
+    current_version = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

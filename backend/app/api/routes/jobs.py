@@ -1,10 +1,32 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel
 from app.database.database import get_db
 from app.models.models import ContentJob, ActivityLog, PublishingJob, JobStatus
 from app.services.markdown_service import MarkdownService
-from app.workers.content_tasks import process_content_job_task, publish_to_strapi_task
+from app.workers.content_tasks import process_content_job_task, publish_to_strapi_task, regenerate_job_step_task, force_finalize_job_task, revise_content_job_task
+
+class RegenerateStepRequest(BaseModel):
+    step_filename: str
+
+def safe_regenerate_step_task(job_id: str, step_filename: str):
+    try:
+        regenerate_job_step_task(job_id, step_filename)
+    except Exception as e:
+        print(f"Error regenerating step {step_filename} for job {job_id}: {e}")
+
+def safe_force_finalize_task(job_id: str):
+    try:
+        force_finalize_job_task(job_id)
+    except Exception as e:
+        print(f"Error force finalizing job {job_id}: {e}")
+
+def safe_revise_task(job_id: str):
+    try:
+        revise_content_job_task(job_id)
+    except Exception as e:
+        print(f"Error revising job {job_id}: {e}")
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -65,15 +87,8 @@ async def get_job_files_status(job_id: str):
 
 @router.get("/{job_id}/files/{filename}")
 async def preview_job_file(job_id: str, filename: str):
-    allowed_files = [
-        "01-research.md",
-        "02-content-brief.md",
-        "03-draft.md",
-        "04-quality-seo.md",
-        "05-final.md",
-    ]
-    if filename not in allowed_files:
-        raise HTTPException(status_code=400, detail="Invalid markdown filename requested.")
+    if (".." in filename) or ("/" in filename) or ("\\" in filename) or not (filename.endswith(".md") or filename.endswith(".json")):
+        raise HTTPException(status_code=400, detail="Invalid filename requested.")
 
     content = MarkdownService.read_markdown(job_id, filename)
     if content is None:
@@ -135,4 +150,70 @@ async def retry_publishing(
     background_tasks.add_task(safe_publish_task, job_id)
 
     return {"message": "Publishing job queued for retry."}
+
+
+@router.post("/{job_id}/regenerate-step")
+async def regenerate_job_step(
+    job_id: str,
+    req: RegenerateStepRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(ContentJob).where(ContentJob.id == job_id))
+    job = res.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    background_tasks.add_task(safe_regenerate_step_task, job_id, req.step_filename)
+
+    return {
+        "job_id": job_id,
+        "step_filename": req.step_filename,
+        "message": f"Step '{req.step_filename}' regeneration queued successfully."
+    }
+
+
+@router.post("/{job_id}/force-finalize")
+async def force_finalize_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(ContentJob).where(ContentJob.id == job_id))
+    job = res.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    background_tasks.add_task(safe_force_finalize_task, job_id)
+
+    return {
+        "job_id": job_id,
+        "message": "Force finalization task queued. 05-final.md will be generated and routed to Human Review."
+    }
+
+
+@router.post("/{job_id}/revise")
+async def revise_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(ContentJob).where(ContentJob.id == job_id))
+    job = res.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.status = JobStatus.WRITING
+    job.current_step = "REVISING"
+    await db.commit()
+
+    background_tasks.add_task(safe_revise_task, job_id)
+
+    return {
+        "job_id": job_id,
+        "message": "Draft revision task queued successfully."
+    }
+
+
+
 

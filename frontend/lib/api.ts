@@ -136,3 +136,30 @@ export async function updateSystemConfig(configData: any) {
     body: JSON.stringify(configData),
   });
 }
+
+export async function deleteBatch(batchId: string) {
+  return fetchApi(`/batches/${batchId}`, { method: 'DELETE' });
+}
+
+export async function resumeBatch(batchId: string) {
+  return fetchApi(`/batches/${batchId}/resume`, { method: 'POST' });
+}
+
+export async function regenerateJobStep(jobId: string, stepFilename: string) {
+  return fetchApi(`/jobs/${jobId}/regenerate-step`, {
+    method: 'POST',
+    body: JSON.stringify({ step_filename: stepFilename }),
+  });
+}
+
+export async function forceFinalizeJob(jobId: string) {
+  return fetchApi(`/jobs/${jobId}/force-finalize`, { method: 'POST' });
+}
+
+export async function reviseJob(jobId: string) {
+  return fetchApi(`/jobs/${jobId}/revise`, { method: 'POST' });
+}
+
+
+
+

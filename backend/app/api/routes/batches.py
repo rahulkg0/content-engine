@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.database.database import get_db
 from app.models.models import ContentBatch, ContentJob, JobStatus, BatchStatus
 from app.services.csv_service import CSVService
+from app.services.markdown_service import MarkdownService
 from app.workers.content_tasks import process_content_job_task
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
@@ -187,3 +188,80 @@ async def get_batch_detail(batch_id: str, db: AsyncSession = Depends(get_db)):
         "created_at": (batch.created_at.isoformat() + "Z") if batch.created_at else None,
         "jobs": jobs_list
     }
+
+
+@router.delete("/{batch_id}")
+async def delete_batch(batch_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(ContentBatch).where(ContentBatch.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    # Fetch associated jobs to delete local temporary Markdown files
+    jobs_res = await db.execute(select(ContentJob).where(ContentJob.batch_id == batch_id))
+    jobs = jobs_res.scalars().all()
+    for j in jobs:
+        MarkdownService.delete_job_files(j.id)
+
+    # Delete batch (cascade deletes ContentJob, Article, ArticleVersion, ActivityLog, PublishingJob)
+    await db.delete(batch)
+    await db.commit()
+
+    return {
+        "batch_id": batch_id,
+        "message": f"Batch '{batch.filename}' and all associated jobs deleted successfully."
+    }
+
+
+@router.post("/{batch_id}/resume")
+async def resume_batch(
+    batch_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(ContentBatch).where(ContentBatch.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    jobs_res = await db.execute(select(ContentJob).where(ContentJob.batch_id == batch_id))
+    jobs = jobs_res.scalars().all()
+
+    # Find jobs that can be resumed: non-terminal or failed states
+    resumable_statuses = [
+        JobStatus.QUEUED,
+        JobStatus.FAILED,
+        JobStatus.CANCELLED,
+        JobStatus.RESEARCHING,
+        JobStatus.BRIEF_GENERATING,
+        JobStatus.WRITING,
+        JobStatus.QUALITY_CHECK
+    ]
+
+    resumed_jobs = []
+    for j in jobs:
+        if j.status in resumable_statuses:
+            j.status = JobStatus.QUEUED
+            j.current_step = "QUEUED"
+            resumed_jobs.append(j)
+
+    if not resumed_jobs:
+        return {
+            "batch_id": batch_id,
+            "resumed_jobs_count": 0,
+            "message": "No queued or failed jobs to resume in this batch."
+        }
+
+    batch.status = BatchStatus.PROCESSING
+    await db.commit()
+
+    # Trigger background execution for all resumed jobs
+    for j in resumed_jobs:
+        background_tasks.add_task(run_job_in_background, j.id)
+
+    return {
+        "batch_id": batch_id,
+        "resumed_jobs_count": len(resumed_jobs),
+        "message": f"Resumed processing for {len(resumed_jobs)} jobs in batch '{batch.filename}'."
+    }
+

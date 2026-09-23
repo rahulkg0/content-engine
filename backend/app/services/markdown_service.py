@@ -20,6 +20,22 @@ class MarkdownService:
         return file_path
 
     @classmethod
+    def save_markdown_version(cls, job_id: str, base_filename: str, content: str, version: int = 1) -> Path:
+        """
+        Saves versioned file (e.g. 03-draft-v2.md) and updates active base file (03-draft.md).
+        """
+        job_dir = cls.get_job_dir(job_id)
+        cls.save_markdown(job_id, base_filename, content)
+        if version > 1:
+            parts = base_filename.rsplit(".", 1)
+            v_filename = f"{parts[0]}-v{version}.{parts[1]}"
+            v_path = job_dir / v_filename
+            with open(v_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return v_path
+        return job_dir / base_filename
+
+    @classmethod
     def read_markdown(cls, job_id: str, filename: str) -> Optional[str]:
         job_dir = cls.get_job_dir(job_id)
         file_path = job_dir / filename

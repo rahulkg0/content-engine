@@ -44,18 +44,18 @@ class OpenRouterService:
         if web_search:
             fallback_models = [
                 chosen_model,
-                "deepseek/deepseek-v4-flash-0731:free",
-                "openrouter/free",
-                "nvidia/nemotron-3-ultra-550b-a55b:free",
-                "nvidia/nemotron-3.5-lightning:free"
+                "deepseek/deepseek-chat",
+                "meta-llama/llama-3.3-70b-instruct:free",
+                "google/gemini-2.0-flash-lite-preview-02-05:free",
+                "openrouter/auto"
             ]
         else:
             fallback_models = [
                 chosen_model,
-                "deepseek/deepseek-v4-flash-0731:free",
-                "openrouter/free",
-                "nvidia/nemotron-3-ultra-550b-a55b:free",
-                "nvidia/nemotron-3.5-lightning:free"
+                "deepseek/deepseek-chat",
+                "meta-llama/llama-3.3-70b-instruct:free",
+                "google/gemini-2.0-flash-lite-preview-02-05:free",
+                "openrouter/auto"
             ]
             
         candidate_models = list(dict.fromkeys(fallback_models))

@@ -66,6 +66,18 @@ def get_sync_db():
     finally:
         db.close()
 
+from sqlalchemy import inspect, text
+
 async def init_db():
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if db_url.startswith("sqlite"):
+            def migrate_sqlite_schema(sync_conn):
+                inspector = inspect(sync_conn)
+                tables = inspector.get_table_names()
+                if "content_jobs" in tables:
+                    columns = [c["name"] for c in inspector.get_columns("content_jobs")]
+                    if "current_version" not in columns:
+                        sync_conn.execute(text("ALTER TABLE content_jobs ADD COLUMN current_version INTEGER DEFAULT 1"))
+            await conn.run_sync(migrate_sqlite_schema)
+

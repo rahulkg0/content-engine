@@ -89,56 +89,11 @@ class HumanizerAgent:
 
     @classmethod
     async def humanize(cls, article_text: str, topic: str, primary_keyword: str) -> str:
-        if settings.DEMO_MODE or not settings.OPENROUTER_API_KEY or settings.OPENROUTER_API_KEY.startswith("mock"):
-            text = cls._replace_ai_vocabulary(article_text)
-            return cls._disrupt_sentence_rhythm(text)
+        from app.agents.editorial_polish_agent import EditorialPolishAgent
+        return await EditorialPolishAgent.polish(
+            article_text,
+            topic=topic,
+            primary_keyword=primary_keyword
+        )
 
-        prompt = f"""
-You are an expert Human Content Editor specializing in converting AI-generated drafts into natural, highly engaging, authentic human-sounding articles.
-
-Target Topic: {topic}
-Primary Keyword to Preserve: {primary_keyword}
-
-Below is the article draft to humanize:
---------------------------------------------------
-{article_text}
---------------------------------------------------
-
-HUMANIZATION INSTRUCTIONS (inspired by lynote-ai/humanize-text AI disruption techniques):
-1. **Sentence Geometry & Burstiness**: Mix sentence lengths dramatically. Pair short 4-8 word punchy statements with longer 20-30 word detailed explanations. Break up monotonous AI sentence cadences.
-2. **Eliminate AI Clichés & Buzzwords**: Remove robotic filler words like "Furthermore", "Moreover", "In conclusion", "In today's fast-paced digital world", "Tapestry", "Delve", "Testament", "Beacon", "Seamless", "Transformative", "Harness", "Spearhead", "Crucial role", "Paramount". Replace them with natural, direct transitions.
-3. **Natural Conversational Voice**: Use clear active voice, natural contractions (don't, it's, we've, you'll), and engaging, relatable phrasing.
-4. **Preserve Structure & Formatting**: Maintain all Markdown headings (H1, H2, H3), bullet points, bold tags, tables, and code snippets exactly.
-5. **Preserve Factuality & Keyword**: Keep all facts, numbers, data points, and the primary keyword '{primary_keyword}' intact.
-
-Return ONLY the complete humanized Markdown article text. Do not include meta-commentary, markdown backtick wrappers, or introductory chatter.
-"""
-
-        try:
-            # Temperature 1.3 as recommended by lynote-ai/humanize-text for creative variance
-            res = await OpenRouterService.generate_completion(
-                prompt=prompt,
-                system_prompt="You are a master editor who humanizes AI text into authentic, natural human prose.",
-                model=settings.DEFAULT_WRITER_MODEL,
-                temperature=1.3
-            )
-            humanized_text = res["text"].strip()
-            if humanized_text.startswith("```markdown"):
-                humanized_text = humanized_text[11:].strip()
-            if humanized_text.startswith("```") and humanized_text.endswith("```"):
-                humanized_text = humanized_text[3:-3].strip()
-
-            if humanized_text and len(humanized_text) > 100:
-                # Apply post-processing (AI vocab replacement + rhythm disruption)
-                post_processed = cls._replace_ai_vocabulary(humanized_text)
-                return cls._disrupt_sentence_rhythm(post_processed)
-            
-            # Fallback to original with post-processing
-            post_processed = cls._replace_ai_vocabulary(article_text)
-            return cls._disrupt_sentence_rhythm(post_processed)
-
-        except Exception as e:
-            print(f"Humanizer fallback warning: {e}")
-            post_processed = cls._replace_ai_vocabulary(article_text)
-            return cls._disrupt_sentence_rhythm(post_processed)
 
