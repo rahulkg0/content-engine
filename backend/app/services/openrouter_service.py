@@ -40,22 +40,22 @@ class OpenRouterService:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        # List of candidate models to try in order (prioritizing DeepSeek V4 Flash free model)
+        # List of candidate models to try in order (prioritizing live verified free models)
         if web_search:
             fallback_models = [
                 chosen_model,
-                "deepseek/deepseek-chat",
-                "meta-llama/llama-3.3-70b-instruct:free",
-                "google/gemini-2.0-flash-lite-preview-02-05:free",
-                "openrouter/auto"
+                "nvidia/nemotron-3-ultra-550b-a55b:free",
+                "google/gemma-4-31b-it:free",
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                "openrouter/free"
             ]
         else:
             fallback_models = [
                 chosen_model,
-                "deepseek/deepseek-chat",
-                "meta-llama/llama-3.3-70b-instruct:free",
-                "google/gemini-2.0-flash-lite-preview-02-05:free",
-                "openrouter/auto"
+                "nvidia/nemotron-3-ultra-550b-a55b:free",
+                "google/gemma-4-31b-it:free",
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                "openrouter/free"
             ]
             
         candidate_models = list(dict.fromkeys(fallback_models))

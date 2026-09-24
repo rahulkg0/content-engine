@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     
     OPENROUTER_API_KEY: str = ""
-    DEFAULT_RESEARCH_MODEL: str = "deepseek/deepseek-v4-flash-0731:free"
-    DEFAULT_WRITER_MODEL: str = "deepseek/deepseek-v4-flash-0731:free"
-    DEFAULT_QUALITY_MODEL: str = "deepseek/deepseek-v4-flash-0731:free"
+    DEFAULT_RESEARCH_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    DEFAULT_WRITER_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    DEFAULT_QUALITY_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
     
     STRAPI_URL: str = "http://localhost:1337"
